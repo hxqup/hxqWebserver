@@ -10,7 +10,7 @@ const char* error_404_form = "The requested file was not found on this requested
 const char* error_500_title = "Internal Error";
 const char* error_500_form = "There was an unusual problem serving the requested file.\n";
 
-const char* doc_root = "/home/webserver/hxqWebserver/resources/";
+const char* doc_root = "/home/webserver/hxqWebserver/resources";
 
 int setnonblocking(int fd){
     int old_option = fcntl(fd,F_GETFL);
@@ -60,8 +60,9 @@ void http_conn::init(int sockfd,const sockaddr_in& addr){
     m_address = addr;
     int reuse = 1;
     // SO_REUSEADDR强制使用被处于TIME_WAIT状态的连接占用的socket地址,即tcp_tw_reuse，实际使用时应关闭，这里作调试用
-    // setsockopt(m_sockfd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof(reuse));
-    // addfd(m_epollfd,sockfd,true);
+    // ！！！但是如果不开启这个的话，当建立连接，再次epoll_wait的时候会阻塞
+    setsockopt(m_sockfd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof(reuse));
+    addfd(m_epollfd,sockfd,true);
     m_user_count++;
 
     init();
@@ -371,6 +372,7 @@ bool http_conn::add_headers(int content_len){
     add_content_length(content_len);
     add_linger();
     add_blank_line();
+    return true;
 }
 
 bool http_conn::add_content_length(int content_len){
