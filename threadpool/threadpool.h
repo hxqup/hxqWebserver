@@ -82,7 +82,7 @@ threadpool< T >::~threadpool() {
         while(!m_stop){
             m_queuestat.wait();
             m_queuelocker.lock();
-            if(m_workqueue.empty()){
+            if(m_workqueue.empty()){ // 之前写多了一个！
                 m_queuelocker.unlock();
                 continue;
             }
