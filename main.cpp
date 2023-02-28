@@ -5,6 +5,8 @@ int main(){
 
     server.init();
 
+    server.log_write();
+
     server.thread_pool();
 
     server.trig_mode();

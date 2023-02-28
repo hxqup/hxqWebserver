@@ -25,8 +25,9 @@ public:
     WebServer();
     ~WebServer();
 
-    void init(int port = 10000,int opt_linger = 0,int thread_num = 8,int m_trigmode = 3);
+    void init(int port = 10000,int log_write = 1,int opt_linger = 0,int thread_num = 8,int m_trigmode = 3);
     void trig_mode();
+    void log_write();
     void thread_pool();
     void eventListen();
     void eventLoop();
@@ -41,6 +42,9 @@ public:
 public:
     int m_port;
     char* m_root;
+    int m_log_write;
+    int m_close_log;
+
     int m_pipefd[2];
     int m_epollfd;
     http_conn *users;

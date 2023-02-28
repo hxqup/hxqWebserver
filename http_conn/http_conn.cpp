@@ -55,7 +55,7 @@ void http_conn::close_conn(bool real_close){
     }
 }
 
-void http_conn::init(int sockfd,const sockaddr_in& addr){
+void http_conn::init(int sockfd,const sockaddr_in& addr,int close_log){
     m_sockfd = sockfd;
     m_address = addr;
     int reuse = 1;
@@ -64,6 +64,8 @@ void http_conn::init(int sockfd,const sockaddr_in& addr){
     setsockopt(m_sockfd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof(reuse));
     addfd(m_epollfd,sockfd,true);
     m_user_count++;
+
+    m_close_log = close_log;
 
     init();
 }
@@ -208,7 +210,7 @@ http_conn::HTTP_CODE http_conn::parse_headers(char* text){
         m_host = text;
     }
     else{
-        printf("oop!unknown header %s\n",text);
+        LOG_INFO("oop!unknown header %s",text);
     }
     return NO_REQUEST;
 }
@@ -231,7 +233,7 @@ http_conn::HTTP_CODE http_conn::process_read(){
     while((m_check_state == CHECK_STATE_CONTENT) && (line_status == LINE_OK) || (line_status = parse_line()) == LINE_OK){
         text = get_line();
         m_start_line = m_checked_idx;
-        printf("got 1 http line: %s\n",text);
+        LOG_INFO("got 1 http line: %s",text);
     
         switch(m_check_state){
             case CHECK_STATE_REQUESTLINE:
@@ -361,6 +363,8 @@ bool http_conn::add_response(const char* format,...){
     }
     m_write_idx += len;
     va_end(arg_list);
+
+    LOG_INFO("request:%s",m_write_buf);
     return true;
 }
 

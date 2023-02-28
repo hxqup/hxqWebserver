@@ -21,6 +21,7 @@
 #include<errno.h>
 #include"../locker/locker.h"
 #include"../timer/lst_timer.h"
+#include"../log/log.h"
 class http_conn
 {
 public:
@@ -37,11 +38,14 @@ public:
     ~http_conn(){}
 
 public:
-    void init(int sockfd,const sockaddr_in& addr);
+    void init(int sockfd,const sockaddr_in& addr,int close_log);
     void close_conn(bool real_close = true);
     void process();
     bool read();
     bool write();
+    sockaddr_in *get_address(){
+        return &m_address;
+    }
 
 private:
     void init();
@@ -95,6 +99,10 @@ private:
     struct stat m_file_stat;
     struct iovec m_iv[2];
     int m_iv_count;
+
+    int m_close_log;
+
 };
+
 
 #endif

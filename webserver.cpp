@@ -25,8 +25,9 @@ WebServer::~WebServer()
     delete m_pool;
 }
 
-void WebServer::init(int port,int opt_linger,int thread_num,int trigmode){
+void WebServer::init(int port,int log_write,int opt_linger,int thread_num,int trigmode){
     m_port = port;
+    m_log_write = log_write;
     m_thread_num = thread_num;
     m_OPT_LINGER = opt_linger;
     m_TRIGMode = trigmode;
@@ -57,6 +58,17 @@ void WebServer::trig_mode(){
 
 void WebServer::thread_pool(){
     m_pool = new threadpool<http_conn>;
+}
+
+void WebServer::log_write(){
+    if(m_close_log == 0){
+        if(1 == m_log_write){
+            Log::get_instance()->init("./ServerLog",m_close_log,2000,800000,800);
+        }
+        else{
+            Log::get_instance()->init("./ServerLog",m_close_log,2000,800000,0);
+        }
+    }
 }
 
 void WebServer::eventListen()
@@ -114,7 +126,7 @@ void WebServer::eventListen()
 }
 
 void WebServer::timer(int connfd,struct sockaddr_in client_address){
-    users[connfd].init(connfd,client_address);
+    users[connfd].init(connfd,client_address,m_close_log);
 
     users_timer[connfd].address = client_address;
     users_timer[connfd].sockfd = connfd;
@@ -131,7 +143,7 @@ void WebServer::adjust_timer(util_timer *timer){
     time_t cur = time(NULL);
     timer->expire = cur + 3 * TIMESLOT;
     utils.m_timer_lst.adjust_timer(timer);
-    printf("adjust timer once\n");
+    LOG_INFO("%s","adjust timer once");
 }
 
 void WebServer::deal_timer(util_timer *timer,int sockfd){
@@ -139,6 +151,8 @@ void WebServer::deal_timer(util_timer *timer,int sockfd){
     if(timer){
         utils.m_timer_lst.del_timer(timer);
     }
+
+    LOG_INFO("close fd %d",users_timer[sockfd].sockfd);
 }
 
 bool WebServer::dealclientdata()
@@ -149,28 +163,29 @@ bool WebServer::dealclientdata()
     if(m_LISTENTrigmode == 0){
         int connfd = accept(m_listenfd,(struct sockaddr *)&client_address,&client_addrlength);
         if(connfd < 0){
-            printf("%s:errno is:%d","accept error\n",errno);
+            LOG_ERROR("%s:errno is:%d","accept error",errno);
             return false;
         }
         if(http_conn::m_user_count >= MAX_FD){
             utils.show_error(connfd,"Internal server busy");
-            printf("%s","Internal server busy\n");
+            LOG_ERROR("%s","Internal server busy");
             return false;
         }
         timer(connfd,client_address);
     }
     // ET
     else{
-        // 这里不会死循环吗
+        // 如果一个套接字被标记为非阻塞式而队列中没有未完成连接套接字, accept 将返回EAGAIN.
+        // 这里后面会返回EAGAIN
         while(1){
             int connfd = accept(m_listenfd,(struct sockaddr *)&client_address,&client_addrlength);
             if(connfd < 0){
-                printf("%s:errno is:%d","accept error\n",errno);
+                LOG_ERROR("%s:errno is:%d","accept error",errno);
                 break;
             }
             if(http_conn::m_user_count >= MAX_FD){
                 utils.show_error(connfd,"Internal server busy");
-                printf("%s","Internal server busy\n");
+                LOG_ERROR("%s","Internal server busy");
                 break;
             }
             timer(connfd,client_address);
@@ -215,6 +230,7 @@ void WebServer::dealwithread(int sockfd){
     util_timer *timer = users_timer[sockfd].timer;
 
     if(users[sockfd].read()){
+        LOG_INFO("deal with the client(%s)",inet_ntoa(users[sockfd].get_address()->sin_addr))
         m_pool->append(users + sockfd);
         if(timer){
             adjust_timer(timer);
@@ -228,6 +244,7 @@ void WebServer::dealwithread(int sockfd){
 void WebServer::dealwithwrite(int sockfd){
     util_timer *timer = users_timer[sockfd].timer;
     if(users[sockfd].write()){
+        LOG_INFO("send data to the client(%s)",inet_ntoa(users[sockfd].get_address()->sin_addr));
         if(timer){
             adjust_timer(timer);
         }
@@ -244,7 +261,7 @@ void WebServer::eventLoop(){
     while(!stop_server){
         int number = epoll_wait(m_epollfd,events,MAX_EVENT_NUMBER,-1);
         if(number < 0 && errno != EINTR){
-            printf("epoll failure\n");
+            LOG_ERROR("%s","epoll failure");
             break;
         }
 
@@ -263,7 +280,7 @@ void WebServer::eventLoop(){
             else if((sockfd == m_pipefd[0]) && (events[i].events & EPOLLIN)){
                 bool flag = dealwithsignal(timeout,stop_server);
                 if(flag == false){
-                    printf("dealclientdata failure\n");
+                    LOG_ERROR("dealclientdata failure\n");
                 }
             }
             else if(events[i].events & EPOLLIN){
@@ -276,7 +293,7 @@ void WebServer::eventLoop(){
         if(timeout){
             utils.timer_handler();
 
-            printf("timer tick\n");
+            LOG_INFO("%s","timer tick");
 
             timeout = false;
         }
