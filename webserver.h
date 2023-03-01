@@ -25,10 +25,11 @@ public:
     WebServer();
     ~WebServer();
 
-    void init(int port = 10000,int log_write = 1,int opt_linger = 0,int thread_num = 8,int m_trigmode = 3);
+    void init(int port,string user,string passWord,string databaseName,int log_write,int opt_linger,int sql_num,int thread_num,int m_trigmode);
     void trig_mode();
     void log_write();
     void thread_pool();
+    void sql_pool();
     void eventListen();
     void eventLoop();
     void timer(int connfd,struct sockaddr_in client_address);
@@ -48,6 +49,13 @@ public:
     int m_pipefd[2];
     int m_epollfd;
     http_conn *users;
+
+    // 数据库相关
+    connection_pool *m_connPool;
+    string m_user;
+    string m_passWord;
+    string m_databaseName;
+    int m_sql_num;
 
     // 线程池相关
     threadpool<http_conn> *m_pool;

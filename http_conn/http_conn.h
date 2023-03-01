@@ -19,6 +19,12 @@
 #include<sys/mman.h>
 #include<stdarg.h>
 #include<errno.h>
+#include<sys/wait.h>
+#include<sys/uio.h>
+#include<map>
+
+
+#include"../mysql/connection_pool.h"
 #include"../locker/locker.h"
 #include"../timer/lst_timer.h"
 #include"../log/log.h"
@@ -38,7 +44,7 @@ public:
     ~http_conn(){}
 
 public:
-    void init(int sockfd,const sockaddr_in& addr,int close_log);
+    void init(int sockfd,const sockaddr_in& addr,char* root,int close_log,string user,string passwd,string sqlname);
     void close_conn(bool real_close = true);
     void process();
     bool read();
@@ -46,6 +52,9 @@ public:
     sockaddr_in *get_address(){
         return &m_address;
     }
+    void initmysql_result(connection_pool *connPool);
+    int timer_flag;
+    int improv;
 
 private:
     void init();
@@ -63,6 +72,7 @@ private:
     bool add_content(const char* content);
     bool add_status_line(int status,const char* title);
     bool add_headers(int content_length);
+    bool add_content_type();
     bool add_content_length(int content_length);
     bool add_linger();
     bool add_blank_line();
@@ -71,6 +81,8 @@ public:
     // 所有socket上的事件都被注册到同一个epoll内核事件表中，所以将epoll文件描述符设置为静态的
     static int m_epollfd;
     static int m_user_count;
+    MYSQL *mysql;
+    int m_state; // 读为0，写为1
 
 private:
     int m_sockfd;
@@ -99,9 +111,17 @@ private:
     struct stat m_file_stat;
     struct iovec m_iv[2];
     int m_iv_count;
-
+    int cgi; //是否启用POST
+    char* m_string; //存储请求头数据
     int m_close_log;
+    int bytes_to_send;
+    int bytes_have_send;
+    char *doc_root;
+    map<string,string> m_users;
 
+    char sql_user[100];
+    char sql_passwd[100];
+    char sql_name[100];
 };
 
 

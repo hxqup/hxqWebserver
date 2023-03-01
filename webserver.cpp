@@ -25,8 +25,12 @@ WebServer::~WebServer()
     delete m_pool;
 }
 
-void WebServer::init(int port,int log_write,int opt_linger,int thread_num,int trigmode){
+void WebServer::init(int port,string user,string passWord,string databaseName,int log_write,int opt_linger,int sql_num,int thread_num,int trigmode){
     m_port = port;
+    m_user = user;
+    m_passWord = passWord;
+    m_databaseName = databaseName;
+    m_sql_num = sql_num;
     m_log_write = log_write;
     m_thread_num = thread_num;
     m_OPT_LINGER = opt_linger;
@@ -69,6 +73,14 @@ void WebServer::log_write(){
             Log::get_instance()->init("./ServerLog/ServerLog",m_close_log,2000,800000,0);
         }
     }
+}
+
+void WebServer::sql_pool()
+{
+    m_connPool = connection_pool::GetInstance();
+    m_connPool->init("localhost",m_user,m_passWord,m_databaseName,3306,m_sql_num,m_close_log);
+
+    users->initmysql_result(m_connPool);
 }
 
 void WebServer::eventListen()
@@ -126,7 +138,7 @@ void WebServer::eventListen()
 }
 
 void WebServer::timer(int connfd,struct sockaddr_in client_address){
-    users[connfd].init(connfd,client_address,m_close_log);
+    users[connfd].init(connfd,client_address,m_root,m_close_log,m_user,m_passWord,m_databaseName);
 
     users_timer[connfd].address = client_address;
     users_timer[connfd].sockfd = connfd;
