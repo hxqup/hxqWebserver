@@ -125,6 +125,7 @@ connection_pool::~connection_pool()
 }
 
 // 使用RAII机制
+// 在获取连接时，通过有参构造对传入的参数进行修改，需要注意的是 如果不使用双指针，那么相当于创建了一个新连接 而使用双指针，则是相当于对当前连接直接进行修改
 connectionRAII::connectionRAII(MYSQL **SQL,connection_pool *connPool){
     *SQL = connPool->GetConnection();
 

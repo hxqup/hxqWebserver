@@ -82,7 +82,7 @@ int http_conn::m_epollfd = -1;
 void http_conn::close_conn(bool real_close){
     if(real_close && (m_sockfd != -1))
     {
-        printf("close %d\n",m_sockfd);
+        LOG_INFO("close %d\n",m_sockfd);
         removefd(m_epollfd,m_sockfd);
         m_sockfd = -1;
         m_user_count--;
@@ -93,10 +93,13 @@ void http_conn::init(int sockfd,const sockaddr_in& addr,char* root,
                     int close_log,string user,string passwd,string sqlname){
     m_sockfd = sockfd;
     m_address = addr;
-    int reuse = 1;
+
+    // 要是加上reuseaddr 得到webbench请求量为0
+
+    // int reuse = 1;
     // SO_REUSEADDR强制使用被处于TIME_WAIT状态的连接占用的socket地址,即tcp_tw_reuse，实际使用时应关闭，这里作调试用
     // ！！！但是如果不开启这个的话，当建立连接，再次epoll_wait的时候会阻塞
-    setsockopt(m_sockfd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof(reuse));
+    // setsockopt(m_sockfd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof(reuse));
     addfd(m_epollfd,sockfd,true);
     m_user_count++;
 
@@ -191,6 +194,7 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char* text){
     if(!m_url){
         return BAD_REQUEST;
     }
+    LOG_INFO("get m_url");
     *m_url++ = '\0';
 
     char* method = text;
@@ -433,7 +437,7 @@ http_conn::HTTP_CODE http_conn::do_request(){
     }
     else if(*(p + 1) == '6'){
         char *m_url_real = (char *)malloc(sizeof(char) * 200);
-        strcpy(m_url_real,"/video,html");
+        strcpy(m_url_real,"/video.html");
         strncpy(m_real_file + len,m_url_real,strlen(m_url_real));
 
         free(m_url_real);
@@ -485,6 +489,7 @@ bool http_conn::write(){
         return true;
     }
 
+    // 针对大文件传输作出调整
     while(1){
         // 将响应报文的状态行、消息头、空行和响应正文发送给浏览器端
         // writev以顺序iov[0]、iov[1]至iov[iovcnt-1]从各缓冲区中聚集输出数据到fd
@@ -602,7 +607,7 @@ bool http_conn::process_write(HTTP_CODE ret){
         }
         case NO_RESOURCE:
         {
-            add_status_line(404,error_400_title);
+            add_status_line(404,error_404_title);
             add_headers(strlen(error_404_form));
             if(!add_content(error_404_form)){
                 return false;
@@ -648,6 +653,7 @@ bool http_conn::process_write(HTTP_CODE ret){
     m_iv[0].iov_base = m_write_buf;
     m_iv[0].iov_len = m_write_idx;
     m_iv_count = 1;
+    bytes_to_send = m_write_idx;
     return true;
 }
 

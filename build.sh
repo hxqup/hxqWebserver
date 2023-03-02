@@ -1,0 +1,1 @@
+g++ main.cpp config/config.cpp http_conn/http_conn.cpp log/log.cpp timer/lst_timer.cpp webserver.cpp mysql/connection_pool.cpp -pthread -lmysqlclient
